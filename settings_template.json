@@ -1,0 +1,16 @@
+{
+    "interval": 1,
+    "authToken": "",
+    "apiKey": "",
+    "accountId": "]",
+    "ipListName": "",
+    "users": [
+        {
+            "name": "Test User",
+            "dnsNames": [
+                "test.net"
+            ],
+            "ips": []
+        }
+    ]
+}
