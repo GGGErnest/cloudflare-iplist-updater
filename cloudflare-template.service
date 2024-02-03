@@ -1,0 +1,8 @@
+[Unit]
+Description=cloudflare ip list updater service
+
+[Service]
+ExecStart=<script path>
+
+[Install]
+WantedBy=multi-user.target
