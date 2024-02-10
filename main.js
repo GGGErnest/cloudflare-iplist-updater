@@ -1,10 +1,11 @@
 const { updateList, getIPs, getLists } = require("./cloudflare-service.js");
-
 const dns = require("dns");
 
 const lodash = require("lodash");
 
 const settings = require("./settings.json");
+const LOGGER = require("./logger.js");
+LOGGER.setLogFilePath("logs.txt");
 
 async function resolveIPAddress(domain) {
   return new Promise((resolve, reject) => {
@@ -44,18 +45,15 @@ async function resolveNewIps() {
   settings.users.forEach((user) => {
     user.dnsNames.forEach(async (dns) => {
       userPromises.push(
-        new Promise(async (resolve, reject) => {
-          let ip;
+        new Promise(async (resolve) => {
           try {
             user.ips = [...(await resolveIPAddress(dns))];
           } catch (error) {
-            console.error(
+            LOGGER.error(
               `${user.name}'s dns ${dns} couldn't be resolved.`,
               error
             );
-            reject();
           }
-          user.ips.push(ip);
           resolve();
         })
       );
@@ -87,9 +85,13 @@ async function getIpNameListId() {
 
     // if there are new IPs, update the list
     if(shouldUpdate) {
+      try {
         const listId = await getIpNameListId();
         await updateIps(listId);
-        console.log("IPs updated at ", new Date().toLocaleString());
+        LOGGER.log("IPs updated");
+      } catch (error) {
+        LOGGER.error(error.message);
+      }
     }
     
   }, (settings.interval * 1000 * 60));

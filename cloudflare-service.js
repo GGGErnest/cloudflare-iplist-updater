@@ -10,7 +10,7 @@ const headers = {
 async function getLists() {
   let url = `https://api.cloudflare.com/client/v4/accounts/${settings.accountId}/rules/lists`;
 
-  return await request(url, "GET", null, {
+  return request(url, "GET", null, {
     "Content-Type": "application/json",
     "X-Auth-Key": settings.authToken,
     Authorization: `Bearer ${"fC0SYeYm-rqcuNORgbyUvZfX8nL8L5xT83fCkglA"}`,
@@ -29,7 +29,7 @@ async function getListItems(listId) {
 
 async function updateList(listId, body) {
   const url = `https://api.cloudflare.com/client/v4/accounts/${settings.accountId}/rules/lists/${listId}/items`;
-  return await request(url, "PUT", body, headers);
+  return request(url, "PUT", body, headers);
 }
 
 module.exports = {

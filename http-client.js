@@ -1,8 +1,7 @@
 const fetch = require('node-fetch');
+const LOGGER = require("./logger.js");
 
 async function request(url, method, body, headers) {
-      try {
-        
         const options = {
             method,
             headers,
@@ -12,12 +11,7 @@ async function request(url, method, body, headers) {
             options.body = JSON.stringify(body);
         }
 
-        const response =  await fetch(url, options);
-        const json = await response.json();
-        return json;
-      } catch (error) {
-        console.error('error:' + error);
-      }
+        return (await fetch(url, options)).json();
 }
 
 module.exports = {request};
