@@ -58,7 +58,7 @@ function processIpv6(ips) {
   return ips
     ? ips.map((ip) => {
         const subnets = ip.split(":");
-        return `${subnets.slice(0, 4).join(":")}::/64`;
+        return `${subnets.slice(0, 4).join(":")}::/56`;
       })
     : [];
 }
