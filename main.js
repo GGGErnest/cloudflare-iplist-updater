@@ -7,12 +7,26 @@ const settings = require("./settings.json");
 const LOGGER = require("./logger.js");
 LOGGER.setLogFilePath("logs.txt");
 
-async function resolveIPAddress(domain) {
+async function resolveIP4Address(domain) {
   return new Promise((resolve, reject) => {
     dns.resolve4(domain, (err, addresses) => {
       if (err) {
-        reject(err);
+        resolve(null);
       } else {
+        resolve(addresses);
+      }
+    });
+  });
+}
+
+async function resolveIP6Address(domain) {
+  return new Promise((resolve, reject) => {
+    dns.resolve6(domain, (err, addresses) => {
+      if (err) {
+        resolve(null);
+        console.log('Dns ipv6 not found');
+      } else {
+        console.log('Dns ipv6' , addresses);
         resolve(addresses);
       }
     });
@@ -40,20 +54,24 @@ async function updateIps(listId) {
   return null;
 }
 
+function processIpv6(ips) {
+  return ips ? ips.map((ip) => {
+    const subnets = ip.split(":");
+    return `${subnets.slice(0, 4).join(":")}:/64`;
+  }) : [];
+}
+
 async function resolveNewIps() {
   const userPromises = [];
   settings.users.forEach((user) => {
     user.dnsNames.forEach(async (dns) => {
       userPromises.push(
         new Promise(async (resolve) => {
-          try {
-            user.ips = [...(await resolveIPAddress(dns))];
-          } catch (error) {
-            LOGGER.error(
-              `${user.name}'s dns ${dns} couldn't be resolved.`,
-              error
-            );
-          }
+          let ipsV6 = await resolveIP6Address(dns);
+          ipsV6 = processIpv6(ipsV6).filter((ip) => ip !== null) || [];
+          let ipv4 = await resolveIP4Address(dns);
+          ipv4 = ipv4.filter((ip) => ip !== null) || [];
+          user.ips = [...ipv4, ...ipsV6];
           resolve();
         })
       );
@@ -70,29 +88,31 @@ async function getIpNameListId() {
 
 (async () => {
   setInterval(async () => {
-    // storing the old IPs to compare with the new ones
-    const oldIps = lodash.cloneDeep(lodash.flatten(settings.users.map((user) => user.ips)));
-   
-    // resolving the new IPs
-    await resolveNewIps();
-    const newIps = lodash.flatten(settings.users.map((user) => user.ips));
-    
-    // comparing the old and new IPs
-    let shouldUpdate = false;
-    lodash.difference(newIps, oldIps).forEach((ip) => {
-      shouldUpdate = true; 
-    });
+  // storing the old IPs to compare with the new ones
+  const oldIps = lodash.cloneDeep(
+    lodash.flatten(settings.users.map((user) => user.ips))
+  );
 
-    // if there are new IPs, update the list
-    if(shouldUpdate) {
-      try {
-        const listId = await getIpNameListId();
-        await updateIps(listId);
-        LOGGER.log("IPs updated");
-      } catch (error) {
-        LOGGER.error(error.message);
-      }
+  // resolving the new IPs
+  await resolveNewIps();
+  const newIps = lodash.flatten(settings.users.map((user) => user.ips));
+
+  // comparing the old and new IPs
+  let shouldUpdate = false;
+  lodash.difference(newIps, oldIps).forEach((ip) => {
+    shouldUpdate = true;
+  });
+
+  // if there are new IPs, update the list
+  if (shouldUpdate) {
+    try {
+      const listId = await getIpNameListId();
+      await updateIps(listId);
+      LOGGER.log("IPs updated", listId);
+    } catch (error) {
+      LOGGER.error(error.message);
     }
-    
+  }
+
   }, (settings.interval * 1000 * 60));
 })();
