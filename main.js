@@ -24,9 +24,9 @@ async function resolveIP6Address(domain) {
     dns.resolve6(domain, (err, addresses) => {
       if (err) {
         resolve(null);
-        console.log('Dns ipv6 not found');
+        LOGGER.log('Dns ipv6 not found');
       } else {
-        console.log('Dns ipv6' , addresses);
+        LOGGER.log('Dns ipv6' , addresses);
         resolve(addresses);
       }
     });
