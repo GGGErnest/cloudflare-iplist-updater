@@ -24,9 +24,9 @@ async function resolveIP6Address(domain) {
     dns.resolve6(domain, (err, addresses) => {
       if (err) {
         resolve(null);
-        LOGGER.log('Dns ipv6 not found');
+        LOGGER.log("Dns ipv6 not found");
       } else {
-        LOGGER.log('Dns ipv6' , addresses);
+        LOGGER.log(`Dns ipv6 ${addresses}`);
         resolve(addresses);
       }
     });
@@ -55,23 +55,33 @@ async function updateIps(listId) {
 }
 
 function processIpv6(ips) {
-  return ips ? ips.map((ip) => {
-    const subnets = ip.split(":");
-    return `${subnets.slice(0, 4).join(":")}:/64`;
-  }) : [];
+  return ips
+    ? ips.map((ip) => {
+        const subnets = ip.split(":");
+        return `${subnets.slice(0, 4).join(":")}::/64`;
+      })
+    : [];
 }
 
 async function resolveNewIps() {
   const userPromises = [];
-  settings.users.forEach((user) => {
+  settings.users.forEach(async (user) => {
     user.dnsNames.forEach(async (dns) => {
       userPromises.push(
         new Promise(async (resolve) => {
           let ipsV6 = await resolveIP6Address(dns);
           ipsV6 = processIpv6(ipsV6).filter((ip) => ip !== null) || [];
           let ipv4 = await resolveIP4Address(dns);
-          ipv4 = ipv4.filter((ip) => ip !== null) || [];
-          user.ips = [...ipv4, ...ipsV6];
+
+          if (ipsV6) {
+            ipsV6 = ipsV6.filter((ip) => ip !== null) || [];
+            user.ips.push(...ipsV6);
+          }
+
+          if (ipv4) {
+            ipv4 = ipv4.filter((ip) => ip !== null) || [];
+            user.ips.push(...ipv4);
+          }
           resolve();
         })
       );
@@ -87,7 +97,7 @@ async function getIpNameListId() {
 }
 
 (async () => {
-  setInterval(async () => {
+  // setInterval(async () => {
   // storing the old IPs to compare with the new ones
   const oldIps = lodash.cloneDeep(
     lodash.flatten(settings.users.map((user) => user.ips))
@@ -107,12 +117,18 @@ async function getIpNameListId() {
   if (shouldUpdate) {
     try {
       const listId = await getIpNameListId();
-      await updateIps(listId);
-      LOGGER.log("IPs updated", listId);
+      const response = await updateIps(listId);
+
+      if (response && response.result) {
+        LOGGER.log("IPs updated");
+        return;
+      }
+
+      LOGGER.error(JSON.stringify(response));
     } catch (error) {
       LOGGER.error(error.message);
     }
   }
 
-  }, (settings.interval * 1000 * 60));
+  // }, (settings.interval * 1000 * 60));
 })();
