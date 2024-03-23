@@ -58,7 +58,7 @@ function processIpv6(ips) {
   return ips
     ? ips.map((ip) => {
         const subnets = ip.split(":");
-        return `${subnets.slice(0, 4).join(":")}::/56`;
+        return `${subnets.slice(0, 4).join(":")}::/64`;
       })
     : [];
 }
@@ -83,7 +83,7 @@ async function resolveNewIps() {
             user.ips.push(...ipv4);
           }
           resolve();
-        })
+        }),
       );
     });
   });
@@ -100,7 +100,7 @@ async function getIpNameListId() {
   // setInterval(async () => {
   // storing the old IPs to compare with the new ones
   const oldIps = lodash.cloneDeep(
-    lodash.flatten(settings.users.map((user) => user.ips))
+    lodash.flatten(settings.users.map((user) => user.ips)),
   );
 
   // resolving the new IPs
