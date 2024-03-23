@@ -1,37 +1,9 @@
 const { updateList, getIPs, getLists } = require("./cloudflare-service.js");
-const dns = require("dns");
-
 const lodash = require("lodash");
-
 const settings = require("./settings.json");
 const LOGGER = require("./logger.js");
 LOGGER.setLogFilePath("logs.txt");
-
-async function resolveIP4Address(domain) {
-  return new Promise((resolve, reject) => {
-    dns.resolve4(domain, (err, addresses) => {
-      if (err) {
-        resolve(null);
-      } else {
-        resolve(addresses);
-      }
-    });
-  });
-}
-
-async function resolveIP6Address(domain) {
-  return new Promise((resolve, reject) => {
-    dns.resolve6(domain, (err, addresses) => {
-      if (err) {
-        resolve(null);
-        LOGGER.log("Dns ipv6 not found");
-      } else {
-        LOGGER.log(`Dns ipv6 ${addresses}`);
-        resolve(addresses);
-      }
-    });
-  });
-}
+const { resolveIPs } = require("./dns-utilities.js");
 
 async function updateIps(listId) {
   const body = [];
@@ -48,46 +20,14 @@ async function updateIps(listId) {
   });
 
   if (body.length > 0) {
-    return await updateList(listId, body);
+    try {
+      await updateList(listId, body);
+    } catch (error) {
+      LOGGER.log(error);
+    }
   }
 
   return null;
-}
-
-function processIpv6(ips) {
-  return ips
-    ? ips.map((ip) => {
-        const subnets = ip.split(":");
-        return `${subnets.slice(0, 4).join(":")}::/64`;
-      })
-    : [];
-}
-
-async function resolveNewIps() {
-  const userPromises = [];
-  settings.users.forEach(async (user) => {
-    user.dnsNames.forEach(async (dns) => {
-      userPromises.push(
-        new Promise(async (resolve) => {
-          let ipsV6 = await resolveIP6Address(dns);
-          ipsV6 = processIpv6(ipsV6).filter((ip) => ip !== null) || [];
-          let ipv4 = await resolveIP4Address(dns);
-
-          if (ipsV6) {
-            ipsV6 = ipsV6.filter((ip) => ip !== null) || [];
-            user.ips.push(...ipsV6);
-          }
-
-          if (ipv4) {
-            ipv4 = ipv4.filter((ip) => ip !== null) || [];
-            user.ips.push(...ipv4);
-          }
-          resolve();
-        }),
-      );
-    });
-  });
-  return Promise.all(userPromises);
 }
 
 async function getIpNameListId() {
@@ -97,38 +37,40 @@ async function getIpNameListId() {
 }
 
 (async () => {
-  // setInterval(async () => {
-  // storing the old IPs to compare with the new ones
-  const oldIps = lodash.cloneDeep(
-    lodash.flatten(settings.users.map((user) => user.ips)),
-  );
+  setInterval(
+    async () => {
+      // storing the old IPs to compare with the new ones
+      const oldIps = lodash.cloneDeep(
+        lodash.flatten(settings.users.map((user) => user.ips)),
+      );
 
-  // resolving the new IPs
-  await resolveNewIps();
-  const newIps = lodash.flatten(settings.users.map((user) => user.ips));
+      // resolving the new IPs
+      await resolveIPs(settings.users);
+      const newIps = lodash.flatten(settings.users.map((user) => user.ips));
 
-  // comparing the old and new IPs
-  let shouldUpdate = false;
-  lodash.difference(newIps, oldIps).forEach((ip) => {
-    shouldUpdate = true;
-  });
+      // comparing the old and new IPs
+      let shouldUpdate = false;
+      lodash.difference(newIps, oldIps).forEach((ip) => {
+        shouldUpdate = true;
+      });
 
-  // if there are new IPs, update the list
-  if (shouldUpdate) {
-    try {
-      const listId = await getIpNameListId();
-      const response = await updateIps(listId);
+      // if there are new IPs, update the list
+      if (shouldUpdate) {
+        try {
+          const listId = await getIpNameListId();
+          const response = await updateIps(listId);
 
-      if (response && response.result) {
-        LOGGER.log("IPs updated");
-        return;
+          if (response && response.result) {
+            LOGGER.log("IPs updated");
+            return;
+          }
+
+          LOGGER.error(JSON.stringify(response));
+        } catch (error) {
+          LOGGER.error(error.message);
+        }
       }
-
-      LOGGER.error(JSON.stringify(response));
-    } catch (error) {
-      LOGGER.error(error.message);
-    }
-  }
-
-  // }, (settings.interval * 1000 * 60));
+    },
+    settings.interval * 1000 * 60,
+  );
 })();
