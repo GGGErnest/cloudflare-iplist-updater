@@ -5,10 +5,12 @@ const LOGGER = require("./logger.js");
 LOGGER.setLogFilePath("logs.txt");
 const { resolveIPs } = require("./dns-utilities.js");
 
+let oldIps = [];
+
 async function updateIps(listId, users) {
   const body = [];
 
-  users.forEach(async (user) => {
+  users.forEach((user) => {
     user.ips.forEach((ip) => {
       if (ip) {
         body.push({
@@ -21,7 +23,7 @@ async function updateIps(listId, users) {
 
   if (body.length > 0) {
     try {
-      await updateList(listId, body);
+      return await updateList(listId, body);
     } catch (error) {
       LOGGER.log(error);
     }
@@ -39,14 +41,9 @@ async function getIpNameListId(accountId) {
 (async () => {
   setInterval(
     async () => {
-      // storing the old IPs to compare with the new ones
-      const oldIps = lodash.cloneDeep(
-        lodash.flatten(settings.users.map((user) => user.ips)),
-      );
-
       // resolving the new IPs
       await resolveIPs(settings.users);
-      const newIps = lodash.flatten(settings.users.map((user) => user.ips));
+      const newIps = lodash.flattenDeep(settings.users.map((user) => user.ips));
 
       // comparing the old and new IPs
       let shouldUpdate = false;
@@ -62,6 +59,7 @@ async function getIpNameListId(accountId) {
 
           if (response && response.result) {
             LOGGER.log("IPs updated");
+            oldIps = newIps;
             return;
           }
 

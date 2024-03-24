@@ -14,7 +14,6 @@ async function resolveIP4Address(domain) {
     });
   });
 }
-
 async function resolveIP6Address(domain) {
   return new Promise((resolve, reject) => {
     dns.resolve6(domain, (err, addresses) => {
@@ -31,10 +30,12 @@ async function resolveIP6Address(domain) {
 
 function processIpv6(ips) {
   return ips
-    ? ips.map((ip) => {
-        const subnets = ip.split(":");
-        return `${subnets.slice(0, 4).join(":")}::/64`;
-      })
+    ? ips
+        .filter((ip) => ip !== null)
+        .map((ip) => {
+          const subnets = ip.split(":");
+          return `${subnets.slice(0, 4).join(":")}::/64`;
+        })
     : [];
 }
 
@@ -42,6 +43,7 @@ async function resolveIPs(users) {
   const userPromises = [];
 
   users.forEach(async (user) => {
+    user.ips = [];
     user.dnsNames.forEach(async (dns) => {
       userPromises.push(
         new Promise(async (resolve) => {
@@ -49,23 +51,16 @@ async function resolveIPs(users) {
           ipsV6 = processIpv6(ipsV6).filter((ip) => ip !== null) || [];
 
           let ipv4 = await resolveIP4Address(dns);
+          ipv4 = ipv4 ? ipv4.filter((ip) => ip !== null) : [];
 
-          if (ipsV6) {
-            ipsV6 = ipsV6.filter((ip) => ip !== null) || [];
-            user.ips.push(...ipsV6);
-          }
-
-          if (ipv4) {
-            ipv4 = ipv4.filter((ip) => ip !== null) || [];
-            user.ips.push(...ipv4);
-          }
-
+          user.ips.push(...ipsV6, ...ipv4);
+          console.log(user.name, user.ips);
           resolve();
         }),
       );
     });
   });
-  return Promise.all(userPromises);
+  return Promise.allSettled(userPromises);
 }
 module.exports = {
   resolveIPs,
