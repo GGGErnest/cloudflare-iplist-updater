@@ -5,8 +5,10 @@ async function resolveIP4Address(domain) {
   return new Promise((resolve, reject) => {
     dns.resolve4(domain, (err, addresses) => {
       if (err) {
+        LOGGER.log("Dns ipv4 not found");
         resolve(null);
       } else {
+        LOGGER.log(`Dns ipv4 ${addresses}`);
         resolve(addresses);
       }
     });

@@ -7,8 +7,8 @@ const headers = {
   Authorization: `Bearer ${settings.apiKey}`,
 };
 
-async function getLists() {
-  let url = `https://api.cloudflare.com/client/v4/accounts/${settings.accountId}/rules/lists`;
+async function getLists(accountId) {
+  let url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/rules/lists`;
 
   return request(url, "GET", null, {
     "Content-Type": "application/json",

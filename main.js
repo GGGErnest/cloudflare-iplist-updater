@@ -1,14 +1,14 @@
-const { updateList, getIPs, getLists } = require("./cloudflare-service.js");
+const { updateList, getLists } = require("./cloudflare-service.js");
 const lodash = require("lodash");
 const settings = require("./settings.json");
 const LOGGER = require("./logger.js");
 LOGGER.setLogFilePath("logs.txt");
 const { resolveIPs } = require("./dns-utilities.js");
 
-async function updateIps(listId) {
+async function updateIps(listId, users) {
   const body = [];
 
-  settings.users.forEach(async (user) => {
+  users.forEach(async (user) => {
     user.ips.forEach((ip) => {
       if (ip) {
         body.push({
@@ -30,8 +30,8 @@ async function updateIps(listId) {
   return null;
 }
 
-async function getIpNameListId() {
-  const lists = await getLists();
+async function getIpNameListId(accountId) {
+  const lists = await getLists(accountId);
   const ipList = lists.result.find((list) => list.name === settings.ipListName);
   return ipList.id;
 }
@@ -57,8 +57,8 @@ async function getIpNameListId() {
       // if there are new IPs, update the list
       if (shouldUpdate) {
         try {
-          const listId = await getIpNameListId();
-          const response = await updateIps(listId);
+          const listId = await getIpNameListId(settings.accountId);
+          const response = await updateIps(listId, settings.users);
 
           if (response && response.result) {
             LOGGER.log("IPs updated");
@@ -69,6 +69,8 @@ async function getIpNameListId() {
         } catch (error) {
           LOGGER.error(error.message);
         }
+      } else {
+        LOGGER.log("No new IPs found");
       }
     },
     settings.interval * 1000 * 60,
